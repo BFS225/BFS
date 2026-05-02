@@ -1,0 +1,1088 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BFS — Task Manager</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0d0d0f;--surface:#16161a;--surface2:#1e1e24;--surface3:#26262e;
+  --border:#2e2e38;--border2:#3d3d4d;
+  --text:#e8e8f0;--text2:#9090a8;--text3:#5a5a70;
+  --red:#e84040;--red-dim:#2a1414;--red-mid:#7a2020;
+  --amber:#e8900a;--green:#2ecc8a;--blue:#3d8ef0;
+  --radius:8px;--radius-lg:12px;--radius-xl:16px;
+  --font-head:'Syne',sans-serif;--font-mono:'DM Mono',monospace;
+}
+body{font-family:var(--font-mono);background:var(--bg);color:var(--text);min-height:100vh;font-size:13px;line-height:1.5}
+::-webkit-scrollbar{width:4px;height:4px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px}
+
+/* ── LOADER ── */
+.loader{position:fixed;inset:0;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;z-index:1000}
+.loader-badge{background:var(--red);color:#fff;border-radius:4px;padding:4px 12px;font-size:16px;font-weight:700;letter-spacing:3px;font-family:var(--font-head)}
+.loader-text{font-size:12px;color:var(--text3)}
+.spinner{width:20px;height:20px;border:2px solid var(--border2);border-top-color:var(--red);border-radius:50%;animation:spin .7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* ── ONBOARDING ── */
+.onboarding{position:fixed;inset:0;z-index:999;background:var(--bg);display:none;align-items:center;justify-content:center}
+.onboarding.show{display:flex}
+.onboarding-card{background:var(--surface);border:1px solid var(--border2);border-radius:var(--radius-xl);padding:40px;width:420px}
+.onboarding-logo{display:flex;align-items:center;gap:12px;margin-bottom:32px}
+.onboarding-badge{background:var(--red);color:#fff;border-radius:4px;padding:3px 10px;font-size:14px;font-weight:700;letter-spacing:2px;font-family:var(--font-head)}
+.onboarding-title{font-family:var(--font-head);font-size:22px;font-weight:700;margin-bottom:6px}
+.onboarding-sub{font-size:12px;color:var(--text3);margin-bottom:28px}
+.ob-field{margin-bottom:18px}
+.ob-field label{display:block;font-size:10px;font-weight:500;color:var(--text3);text-transform:uppercase;letter-spacing:.1em;margin-bottom:6px}
+.ob-field input,.ob-field select{width:100%;padding:10px 12px;border-radius:var(--radius);border:1px solid var(--border);background:var(--surface2);font-size:13px;color:var(--text);font-family:var(--font-mono);outline:none;transition:border-color .15s}
+.ob-field input:focus,.ob-field select:focus{border-color:var(--border2)}
+.ob-field select option{background:var(--surface2)}
+.ob-btn{width:100%;padding:12px;background:var(--red);border:none;border-radius:var(--radius);color:#fff;font-size:13px;font-family:var(--font-mono);cursor:pointer;margin-top:8px;transition:background .15s}
+.ob-btn:hover{background:#c83030}
+.ob-btn:disabled{opacity:.5;cursor:not-allowed}
+.ob-error{font-size:11px;color:var(--red);margin-top:8px;display:none}
+
+/* ── TOPBAR ── */
+.topbar{position:fixed;top:0;left:0;right:0;z-index:50;background:var(--bg);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:16px;padding:0 20px;height:52px}
+.logo{font-family:var(--font-head);font-weight:700;font-size:16px;display:flex;align-items:center;gap:10px}
+.logo-badge{background:var(--red);color:#fff;border-radius:4px;padding:2px 8px;font-size:12px;font-weight:700;letter-spacing:2px;font-family:var(--font-head)}
+.logo-sub{color:var(--text2);font-size:11px;font-weight:400;font-family:var(--font-mono)}
+.nav{display:flex;gap:2px;margin-left:auto}
+.nav-btn{padding:6px 16px;border-radius:var(--radius);border:none;background:transparent;cursor:pointer;font-size:12px;color:var(--text2);font-family:var(--font-mono);letter-spacing:.05em;transition:all .15s}
+.nav-btn:hover{background:var(--surface2);color:var(--text)}
+.nav-btn.active{background:var(--surface3);color:var(--text);border:1px solid var(--border2)}
+.btn{padding:7px 16px;border-radius:var(--radius);border:1px solid var(--border2);background:transparent;cursor:pointer;font-size:12px;color:var(--text);font-family:var(--font-mono);transition:all .15s}
+.btn:hover{background:var(--surface2)}
+.btn-red{background:var(--red);border-color:var(--red);color:#fff}
+.btn-red:hover{background:#c83030}
+.live-dot{width:7px;height:7px;border-radius:50%;background:var(--green);animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+
+/* PROFIL CHIP */
+.profil-chip{display:flex;align-items:center;gap:8px;padding:4px 12px 4px 6px;border-radius:20px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;transition:border-color .15s;position:relative}
+.profil-chip:hover{border-color:var(--border2)}
+.profil-avatar{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:500;flex-shrink:0}
+.profil-name{font-size:12px;color:var(--text)}
+.profil-team-label{font-size:10px;color:var(--text3)}
+.profil-dropdown{position:absolute;top:calc(100% + 8px);right:0;background:var(--surface);border:1px solid var(--border2);border-radius:var(--radius-lg);padding:8px;width:210px;display:none;z-index:100}
+.profil-dropdown.open{display:block}
+.profil-dropdown-item{padding:8px 10px;border-radius:var(--radius);cursor:pointer;font-size:12px;color:var(--text2);transition:all .1s}
+.profil-dropdown-item:hover{background:var(--surface2);color:var(--text)}
+.profil-dropdown-item.danger{color:var(--red)}
+.profil-dropdown-sep{height:1px;background:var(--border);margin:4px 0}
+
+/* ── LAYOUT ── */
+.layout{display:flex;margin-top:52px;height:calc(100vh - 52px)}
+.sidebar{width:210px;flex-shrink:0;background:var(--surface);border-right:1px solid var(--border);padding:16px 8px;overflow-y:auto;display:flex;flex-direction:column;gap:2px}
+.sidebar-section{font-size:10px;font-weight:500;color:var(--text3);text-transform:uppercase;letter-spacing:.1em;padding:10px 8px 6px}
+.sidebar-item{padding:7px 10px;border-radius:var(--radius);cursor:pointer;font-size:12px;color:var(--text2);display:flex;align-items:center;gap:8px;justify-content:space-between;transition:all .12s;border:1px solid transparent}
+.sidebar-item:hover{background:var(--surface2);color:var(--text)}
+.sidebar-item.active{background:var(--surface3);color:var(--text);border-color:var(--border2)}
+.sbadge{font-size:10px;padding:1px 7px;border-radius:9px;background:var(--surface3);color:var(--text3);border:1px solid var(--border)}
+.team-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+.prio-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0}
+.sidebar-divider{height:1px;background:var(--border);margin:8px 0}
+
+/* ── MAIN ── */
+.main{flex:1;overflow:auto;padding:24px}
+.page-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;gap:12px}
+.page-title{font-family:var(--font-head);font-size:18px;font-weight:600;letter-spacing:-.02em}
+select,input[type=text],input[type=date],textarea{padding:6px 10px;border-radius:var(--radius);border:1px solid var(--border);background:var(--surface2);font-size:12px;color:var(--text);font-family:var(--font-mono);transition:border-color .15s;outline:none}
+select:focus,input:focus,textarea:focus{border-color:var(--border2)}
+select option{background:var(--surface2)}
+textarea{resize:vertical;line-height:1.6}
+.tag{font-size:10px;padding:2px 8px;border-radius:9px;font-weight:500;font-family:var(--font-mono);letter-spacing:.03em}
+.avatar{width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:500;flex-shrink:0;border:1px solid var(--border)}
+.empty{text-align:center;padding:60px 20px;color:var(--text3);font-size:12px}
+
+/* ── LIST ── */
+.list-table{width:100%;border-collapse:collapse;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden}
+.list-table thead tr{background:var(--surface2)}
+.list-table th{text-align:left;padding:9px 14px;font-size:10px;font-weight:500;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;border-bottom:1px solid var(--border)}
+.list-table td{padding:10px 14px;border-bottom:1px solid var(--border);font-size:12px;color:var(--text2)}
+.list-table tbody tr:last-child td{border-bottom:none}
+.list-table tbody tr{cursor:pointer;transition:background .1s}
+.list-table tbody tr:hover{background:var(--surface2)}
+.list-table td:first-child{color:var(--text);font-weight:500;font-family:var(--font-head)}
+
+/* ── DASHBOARD ── */
+.stats-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:24px}
+.stat-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:16px}
+.stat-label{font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px}
+.stat-value{font-size:28px;font-weight:700;font-family:var(--font-head);letter-spacing:-.02em}
+.stat-sub{font-size:10px;color:var(--text3);margin-top:3px}
+.team-progress-wrap{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:16px}
+.team-progress-title{font-family:var(--font-head);font-size:13px;font-weight:600;margin-bottom:14px;color:var(--text2)}
+.team-row{margin-bottom:14px}
+.team-row-header{display:flex;justify-content:space-between;margin-bottom:5px}
+.team-row-name{font-size:12px;display:flex;align-items:center;gap:7px}
+.team-row-count{font-size:11px;color:var(--text3)}
+.progress-bar{height:5px;background:var(--surface3);border-radius:3px;overflow:hidden}
+.progress-fill{height:100%;border-radius:3px;transition:width .4s ease}
+
+/* ── MODALS ── */
+.modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:200;align-items:center;justify-content:center;backdrop-filter:blur(2px)}
+.modal-bg.open{display:flex}
+.modal{background:var(--surface);border:1px solid var(--border2);border-radius:var(--radius-xl);width:500px;max-height:85vh;overflow-y:auto}
+.modal-sm{width:400px}
+.modal-header{padding:18px 22px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;background:var(--surface);z-index:1}
+.modal-title{font-family:var(--font-head);font-size:15px;font-weight:600}
+.modal-close{border:none;background:none;font-size:22px;cursor:pointer;color:var(--text3);line-height:1;padding:0 4px}
+.modal-close:hover{color:var(--text)}
+.modal-body{padding:22px}
+.field{margin-bottom:16px}
+.field label{display:block;font-size:10px;font-weight:500;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:5px}
+.field input,.field select,.field textarea{width:100%}
+.field-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.modal-footer{padding:14px 22px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:8px}
+
+/* ── DETAIL PANEL ── */
+.detail-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:150;backdrop-filter:blur(1px)}
+.detail-overlay.open{display:block}
+.detail-panel{position:fixed;top:52px;right:0;bottom:0;z-index:160;width:420px;background:var(--surface);border-left:1px solid var(--border2);display:flex;flex-direction:column;transform:translateX(100%);transition:transform .2s ease}
+.detail-panel.open{transform:translateX(0)}
+.detail-header{padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-shrink:0}
+.detail-title{font-family:var(--font-head);font-size:15px;font-weight:600;line-height:1.4}
+.detail-body{flex:1;overflow-y:auto;padding:20px}
+.detail-section{margin-bottom:22px}
+.detail-label{font-size:10px;font-weight:500;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);margin-bottom:7px}
+.detail-value{font-size:13px;color:var(--text)}
+.detail-value.late{color:var(--red)}
+.meta-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:22px}
+.comment{display:flex;gap:10px;margin-bottom:14px}
+.comment-avatar{flex-shrink:0}
+.comment-body{flex:1}
+.comment-author{font-size:11px;font-weight:500;color:var(--text);margin-bottom:2px;display:flex;align-items:center;gap:6px}
+.me-badge{font-size:9px;padding:1px 5px;border-radius:4px;background:var(--red-dim);color:var(--red);border:1px solid var(--red-mid)}
+.comment-text{font-size:12px;color:var(--text2);line-height:1.55}
+.comment-time{font-size:10px;color:var(--text3);margin-top:3px}
+.action-row{display:flex;gap:8px;margin-bottom:16px}
+.comment-box{margin-top:12px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);padding:12px}
+.comment-box-header{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.subtask-row{display:flex;align-items:center;gap:9px;padding:7px 0;border-bottom:1px solid var(--border)}
+.subtask-row:last-child{border-bottom:none}
+.subtask-check{width:16px;height:16px;border-radius:4px;border:1.5px solid var(--border2);background:transparent;cursor:pointer;flex-shrink:0;appearance:none;-webkit-appearance:none;position:relative;transition:all .15s}
+.subtask-check:checked{background:var(--green);border-color:var(--green)}
+.subtask-check:checked::after{content:'';position:absolute;left:3px;top:0px;width:5px;height:9px;border:2px solid #fff;border-left:none;border-top:none;transform:rotate(45deg)}
+.subtask-label{flex:1;font-size:12px;color:var(--text2);transition:color .15s}
+.subtask-label.done{text-decoration:line-through;color:var(--text3)}
+.subtask-del{background:none;border:none;cursor:pointer;color:var(--text3);font-size:14px;padding:0 2px;line-height:1;opacity:0;transition:opacity .15s}
+.subtask-row:hover .subtask-del{opacity:1}
+.subtask-add-row{display:flex;gap:8px;margin-top:8px}
+.subtask-add-row input{flex:1;font-size:12px;padding:6px 10px}
+.expand-btn{display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border-radius:5px;border:1px solid var(--border);background:transparent;color:var(--text3);font-size:10px;font-family:var(--font-mono);cursor:pointer;transition:all .15s;white-space:nowrap}
+.expand-btn:hover{border-color:var(--border2);color:var(--text)}
+.expand-btn.open{border-color:var(--green);color:var(--green)}
+.inline-subtasks{background:var(--surface2);border-top:1px solid var(--border)}
+.inline-subtasks td{padding:8px 14px 10px!important;border-bottom:none!important}
+.inline-subtask-row{display:flex;align-items:center;gap:8px;padding:4px 0}
+.inline-subtask-check{width:14px;height:14px;border-radius:3px;border:1.5px solid var(--border2);background:transparent;cursor:pointer;flex-shrink:0;appearance:none;-webkit-appearance:none;position:relative;transition:all .15s}
+.inline-subtask-check:checked{background:var(--green);border-color:var(--green)}
+.inline-subtask-check:checked::after{content:'';position:absolute;left:2px;top:0px;width:5px;height:8px;border:2px solid #fff;border-left:none;border-top:none;transform:rotate(45deg)}
+.subtask-progress{height:3px;background:var(--surface3);border-radius:2px;overflow:hidden;margin-top:6px}
+.subtask-progress-fill{height:100%;background:var(--green);border-radius:2px;transition:width .3s ease}
+</style>
+</head>
+<body>
+
+<!-- ══ LOADER ══ -->
+<div class="loader" id="loader">
+  <span class="loader-badge">BFS</span>
+  <div id="loader-spinner" class="spinner"></div>
+  <div class="loader-text" id="loader-text">Connexion à la base de données...</div>
+  <div id="loader-error" style="display:none;max-width:380px;text-align:center">
+    <div style="font-size:13px;color:var(--red);margin-bottom:12px" id="loader-error-msg"></div>
+    <div style="font-size:11px;color:var(--text3);margin-bottom:16px;line-height:1.7" id="loader-error-detail"></div>
+    <button onclick="location.reload()" style="padding:8px 20px;background:var(--red);border:none;border-radius:8px;color:#fff;font-family:var(--font-mono);font-size:12px;cursor:pointer">Réessayer</button>
+  </div>
+</div>
+
+<!-- ══ ONBOARDING ══ -->
+<div class="onboarding" id="onboarding">
+  <div class="onboarding-card">
+    <div class="onboarding-logo">
+      <span class="onboarding-badge">BFS</span>
+      <span style="font-family:var(--font-head);font-size:15px;font-weight:600">Boquette Formula Student</span>
+    </div>
+    <div class="onboarding-title">Bienvenue 👋</div>
+    <div class="onboarding-sub">Identifiez-vous pour rejoindre l'équipe. Votre nom sera visible par tous les membres.</div>
+    <div class="ob-field">
+      <label>Votre prénom et nom *</label>
+      <input type="text" id="ob-name" placeholder="Ex : Noah Bernard" autocomplete="name">
+    </div>
+    <div class="ob-field">
+      <label>Votre pôle</label>
+      <select id="ob-team">
+        <option>Pôle Élec</option>
+        <option>Pôle Méca</option>
+        <option>Pôle Sponso/Com</option>
+        <option>Bureau</option>
+      </select>
+    </div>
+    <button class="ob-btn" id="ob-btn" onclick="saveProfile()">Accéder au gestionnaire →</button>
+    <div class="ob-error" id="ob-error"></div>
+  </div>
+</div>
+
+<!-- ══ TOPBAR ══ -->
+<div class="topbar" id="topbar" style="display:none">
+  <div class="logo">
+    <span class="logo-badge">BFS</span>
+    <div>
+      <div style="line-height:1">Boquette Formula Student</div>
+      <div class="logo-sub">Task Manager v2.0</div>
+    </div>
+  </div>
+  <nav class="nav">
+    <button class="nav-btn active" onclick="switchView('liste',this)">Liste</button>
+    <button class="nav-btn" onclick="switchView('dashboard',this)">Dashboard</button>
+  </nav>
+  <div style="display:flex;align-items:center;gap:8px;margin-left:12px">
+    <div class="live-dot" title="Temps réel actif"></div>
+    <span style="font-size:10px;color:var(--text3)">Live</span>
+  </div>
+  <button class="btn btn-red" onclick="openNewTask()">+ Nouvelle tâche</button>
+  <div class="profil-chip" id="profil-chip" onclick="toggleProfilDropdown(event)">
+    <div class="profil-avatar" id="topbar-avatar"></div>
+    <div>
+      <div class="profil-name" id="topbar-name"></div>
+      <div class="profil-team-label" id="topbar-team-label"></div>
+    </div>
+    <div class="profil-dropdown" id="profil-dropdown">
+      <div class="profil-dropdown-item" onclick="openEditProfile(event)">✏️ &nbsp;Modifier mon profil</div>
+      <div class="profil-dropdown-sep"></div>
+      <div class="profil-dropdown-item danger" onclick="resetProfile()">↩ &nbsp;Changer de compte</div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ APP LAYOUT ══ -->
+<div class="layout" id="app-layout" style="display:none">
+  <aside class="sidebar">
+    <div class="sidebar-section">Sous-équipes</div>
+    <div class="sidebar-item active" onclick="filterTeam('all',this)">
+      <span>Toutes</span><span class="sbadge" id="badge-all">0</span>
+    </div>
+    <div class="sidebar-item" onclick="filterTeam('Pôle Élec',this)">
+      <span style="display:flex;align-items:center;gap:7px"><span class="team-dot" style="background:#3d8ef0"></span>Pôle Élec</span>
+      <span class="sbadge" id="badge-Pole-Elec">0</span>
+    </div>
+    <div class="sidebar-item" onclick="filterTeam('Pôle Méca',this)">
+      <span style="display:flex;align-items:center;gap:7px"><span class="team-dot" style="background:#e84040"></span>Pôle Méca</span>
+      <span class="sbadge" id="badge-Pole-Meca">0</span>
+    </div>
+    <div class="sidebar-item" onclick="filterTeam('Pôle Sponso/Com',this)">
+      <span style="display:flex;align-items:center;gap:7px"><span class="team-dot" style="background:#2ecc8a"></span>Pôle Sponso/Com</span>
+      <span class="sbadge" id="badge-Pole-Sponso">0</span>
+    </div>
+    <div class="sidebar-item" onclick="filterTeam('Bureau',this)">
+      <span style="display:flex;align-items:center;gap:7px"><span class="team-dot" style="background:#e8900a"></span>Bureau</span>
+      <span class="sbadge" id="badge-Bureau">0</span>
+    </div>
+    <div class="sidebar-divider"></div>
+    <div class="sidebar-section">Priorité</div>
+    <div class="sidebar-item" data-prio-item onclick="filterPriority('all',this)"><span>Toutes</span></div>
+    <div class="sidebar-item" data-prio-item onclick="filterPriority('critique',this)">
+      <span style="display:flex;align-items:center;gap:7px"><span class="prio-dot" style="background:#e84040"></span>Critique</span>
+    </div>
+    <div class="sidebar-item" data-prio-item onclick="filterPriority('haute',this)">
+      <span style="display:flex;align-items:center;gap:7px"><span class="prio-dot" style="background:#e87830"></span>Haute</span>
+    </div>
+    <div class="sidebar-item" data-prio-item onclick="filterPriority('moyenne',this)">
+      <span style="display:flex;align-items:center;gap:7px"><span class="prio-dot" style="background:#e8900a"></span>Moyenne</span>
+    </div>
+    <div class="sidebar-item" data-prio-item onclick="filterPriority('basse',this)">
+      <span style="display:flex;align-items:center;gap:7px"><span class="prio-dot" style="background:#606080"></span>Basse</span>
+    </div>
+    <div class="sidebar-divider"></div>
+    <div class="sidebar-section">Assigné à</div>
+    <div id="assignee-sidebar">
+      <div class="sidebar-item active" data-assignee-item onclick="filterAssignee('all',this)"><span>Tous</span></div>
+    </div>
+  </aside>
+
+  <main class="main">
+    <div id="view-liste">
+      <div class="page-header">
+        <div class="page-title" id="list-title">Toutes les tâches</div>
+      </div>
+      <div id="list-content"></div>
+    </div>
+    <div id="view-dashboard" style="display:none">
+      <div class="page-header"><div class="page-title">Vue d'ensemble</div></div>
+      <div class="stats-grid" id="stats-grid"></div>
+      <div class="team-progress-wrap">
+        <div class="team-progress-title">Progression par sous-équipe</div>
+        <div id="team-bars"></div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- ══ MODAL TÂCHE ══ -->
+<div class="modal-bg" id="modal-bg">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title" id="modal-title">Nouvelle tâche</div>
+      <button class="modal-close" onclick="closeModal()">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="field"><label>Titre *</label><input type="text" id="f-title" placeholder="Ex : Conception diffuseur arrière"></div>
+      <div class="field"><label>Description</label><textarea id="f-desc" rows="3" placeholder="Détails, contexte, critères d'acceptation..."></textarea></div>
+      <div class="field-row">
+        <div class="field"><label>Sous-équipe</label>
+          <select id="f-team">
+            <option>Pôle Élec</option><option>Pôle Méca</option><option>Pôle Sponso/Com</option><option>Bureau</option>
+          </select>
+        </div>
+        <div class="field"><label>Priorité</label>
+          <select id="f-priority"><option value="critique">Critique</option><option value="haute">Haute</option><option value="moyenne" selected>Moyenne</option><option value="basse">Basse</option></select>
+        </div>
+        <div class="field"><label>Assigné à</label>
+          <select id="f-assignee"><option value="">— Non assigné —</option></select>
+        </div>
+        <div class="field"><label>Deadline</label><input type="date" id="f-deadline"></div>
+        <div class="field" style="grid-column:1/-1"><label>Statut</label>
+          <select id="f-status">
+            <option value="backlog">Non commencé</option><option value="en cours">En cours</option>
+            <option value="review">Review</option><option value="terminé">Terminé</option>
+          </select>
+        </div>
+        <div class="field" style="grid-column:1/-1">
+          <label>Lien Google Drive <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--text3)">(Optionnel)</span></label>
+          <input type="text" id="f-drive" placeholder="https://drive.google.com/...">
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal()">Annuler</button>
+      <button class="btn btn-red" id="save-btn" onclick="saveTask()">Enregistrer</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ MODAL EDIT PROFIL ══ -->
+<div class="modal-bg" id="profil-modal-bg">
+  <div class="modal modal-sm">
+    <div class="modal-header">
+      <div class="modal-title">Mon profil</div>
+      <button class="modal-close" onclick="closeEditProfile()">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="field"><label>Prénom et Nom</label><input type="text" id="ep-name"></div>
+      <div class="field"><label>Pôle</label>
+        <select id="ep-team">
+          <option>Pôle Élec</option><option>Pôle Méca</option><option>Pôle Sponso/Com</option><option>Bureau</option>
+        </select>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeEditProfile()">Annuler</button>
+      <button class="btn btn-red" onclick="saveEditProfile()">Enregistrer</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ DETAIL PANEL ══ -->
+<div class="detail-overlay" id="detail-overlay" onclick="closeDetail()"></div>
+<div class="detail-panel" id="detail-panel">
+  <div class="detail-header">
+    <div class="detail-title" id="detail-title"></div>
+    <button class="modal-close" onclick="closeDetail()">×</button>
+  </div>
+  <div class="detail-body" id="detail-body"></div>
+</div>
+
+<script>
+// ══════════════════════════════════════════════════════
+//  ⚙️  CONFIGURATION — À remplir après setup Supabase
+// ══════════════════════════════════════════════════════
+const SUPABASE_URL = 'https://vewekckrvnauckdzpazs.supabase.co';
+const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZld2VrY2tydm5hdWNrZHpwYXpzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc1MzIxOTUsImV4cCI6MjA5MzEwODE5NX0.IOS5R6-m8Zwrg0DWDig-6yWOCTrAs9550PTCSwBWwwQ';
+// ══════════════════════════════════════════════════════
+
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
+
+const TEAMS = {
+  'Pôle Élec':'#3d8ef0','Pôle Méca':'#e84040',
+  'Pôle Sponso/Com':'#2ecc8a','Bureau':'#e8900a'
+};
+const BADGE_IDS = {
+  'Pôle Élec':'badge-Pole-Elec','Pôle Méca':'badge-Pole-Meca',
+  'Pôle Sponso/Com':'badge-Pole-Sponso','Bureau':'badge-Bureau'
+};
+const PRIOS = {
+  critique:{color:'#e84040',bg:'rgba(232,64,64,.15)',label:'critique'},
+  haute:   {color:'#e87830',bg:'rgba(232,120,48,.12)',label:'haute'},
+  moyenne: {color:'#e8900a',bg:'rgba(232,144,10,.12)',label:'moyenne'},
+  basse:   {color:'#606080',bg:'rgba(96,96,128,.12)',label:'basse'}
+};
+const STATUSES = ['backlog','en cours','review','terminé'];
+const STATUS_LABELS = {'backlog':'Non commencé','en cours':'En cours','review':'Review','terminé':'Terminé ✓'};
+const STATUS_COLORS = {'backlog':'#6060a0','en cours':'#3d8ef0','review':'#e8900a','terminé':'#2ecc8a'};
+
+let tasks = [];
+let profiles = [];
+const expandedRows = new Set(); // task ids with subtasks expanded in list
+let profile = null;
+let editId = null;
+let ftTeam = 'all', ftPrio = 'all', ftAssignee = 'all', curView = 'liste';
+let openDetailId = null;
+
+// ── UTILS ─────────────────────────────────────────────
+function esc(s){const d=document.createElement('div');d.textContent=s||'';return d.innerHTML;}
+function initials(n){return(n||'?').split(' ').map(w=>w[0]).join('').substring(0,2).toUpperCase();}
+function avatarBg(n){const c=['#9b6ef033','#e8404033','#e8900a33','#2ecc8a33','#3d8ef033','#60608033'];let h=0;for(let i=0;i<(n||'').length;i++)h=(h*31+(n||'').charCodeAt(i))%c.length;return{bg:c[h],color:c[h].slice(0,7)};}
+function isLate(dl,status){return dl&&new Date(dl+'T00:00:00')<new Date()&&status!=='terminé';}
+function fmtDate(d){if(!d)return '';const dt=new Date(d+'T00:00:00');return dt.toLocaleDateString('fr-FR',{day:'2-digit',month:'short'});}
+function fmtTs(ts){if(!ts)return '';const d=new Date(ts);return d.toLocaleDateString('fr-FR',{day:'2-digit',month:'short'})+' '+d.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});}
+function showLoader(v){document.getElementById('loader').style.display=v?'flex':'none';}
+
+function showLoaderError(title, detail){
+  document.getElementById('loader-spinner').style.display='none';
+  document.getElementById('loader-text').style.display='none';
+  document.getElementById('loader-error').style.display='block';
+  document.getElementById('loader-error-msg').textContent=title;
+  document.getElementById('loader-error-detail').textContent=detail;
+}
+
+// ── PROFIL (localStorage — identité de l'appareil) ────
+function loadLocalProfile(){
+  try{profile=JSON.parse(localStorage.getItem('bfs_profile')||'null');}catch(e){profile=null;}
+}
+function saveLocalProfile(p){
+  profile=p;
+  localStorage.setItem('bfs_profile',JSON.stringify(p));
+}
+
+async function saveProfile(){
+  const name = document.getElementById('ob-name').value.trim();
+  if(!name){document.getElementById('ob-name').focus();return;}
+  const team = document.getElementById('ob-team').value;
+  const btn = document.getElementById('ob-btn');
+  const errEl = document.getElementById('ob-error');
+  btn.disabled=true; btn.textContent='Enregistrement...'; errEl.style.display='none';
+
+  // Upsert dans la table profiles (match sur le nom exact)
+  const {error} = await sb.from('profiles').upsert({name,team},{onConflict:'name'});
+  if(error){
+    errEl.textContent='Erreur : '+error.message; errEl.style.display='block';
+    btn.disabled=false; btn.textContent='Accéder au gestionnaire →'; return;
+  }
+  saveLocalProfile({name,team});
+  document.getElementById('onboarding').classList.remove('show');
+  await initApp();
+}
+
+async function saveEditProfile(){
+  const name = document.getElementById('ep-name').value.trim();
+  if(!name)return;
+  const team = document.getElementById('ep-team').value;
+  const {error} = await sb.from('profiles').upsert({name,team},{onConflict:'name'});
+  if(error){alert('Erreur : '+error.message);return;}
+  saveLocalProfile({name,team});
+  closeEditProfile();
+  renderTopbarProfile();
+  render();
+}
+
+function openEditProfile(e){
+  if(e)e.stopPropagation();
+  document.getElementById('profil-dropdown').classList.remove('open');
+  document.getElementById('ep-name').value=profile.name;
+  document.getElementById('ep-team').value=profile.team;
+  document.getElementById('profil-modal-bg').classList.add('open');
+}
+function closeEditProfile(){document.getElementById('profil-modal-bg').classList.remove('open');}
+
+function resetProfile(){
+  if(!confirm('Changer de compte ? Vos données resteront intactes dans la base.'))return;
+  document.getElementById('profil-dropdown').classList.remove('open');
+  localStorage.removeItem('bfs_profile');
+  profile=null;
+  document.getElementById('topbar').style.display='none';
+  document.getElementById('app-layout').style.display='none';
+  document.getElementById('onboarding').classList.add('show');
+  document.getElementById('ob-name').value='';
+  document.getElementById('ob-btn').disabled=false;
+  document.getElementById('ob-btn').textContent='Accéder au gestionnaire →';
+}
+
+function renderTopbarProfile(){
+  if(!profile)return;
+  const av=avatarBg(profile.name);
+  const el=document.getElementById('topbar-avatar');
+  el.textContent=initials(profile.name);
+  el.style.background=av.bg; el.style.color=av.color;
+  document.getElementById('topbar-name').textContent=profile.name;
+  document.getElementById('topbar-team-label').textContent=profile.team;
+}
+
+function toggleProfilDropdown(e){
+  e.stopPropagation();
+  document.getElementById('profil-dropdown').classList.toggle('open');
+}
+document.addEventListener('click',()=>document.getElementById('profil-dropdown').classList.remove('open'));
+
+// ── INIT ──────────────────────────────────────────────
+async function initApp(){
+  showLoader(true);
+  await Promise.all([fetchTasks(), fetchProfiles()]);
+  renderTopbarProfile();
+  populateAssigneeSelect();
+  document.getElementById('topbar').style.display='flex';
+  document.getElementById('app-layout').style.display='flex';
+  showLoader(false);
+  render();
+  subscribeRealtime();
+}
+
+// ── SUPABASE FETCH ─────────────────────────────────────
+async function fetchTasks(){
+  const {data,error}=await sb.from('tasks').select('*').order('created_at',{ascending:false});
+  if(!error)tasks=data||[];
+}
+async function fetchProfiles(){
+  const {data,error}=await sb.from('profiles').select('*').order('name');
+  if(!error)profiles=data||[];
+}
+async function fetchComments(taskId){
+  const {data}=await sb.from('comments').select('*').eq('task_id',taskId).order('created_at');
+  return data||[];
+}
+async function fetchSubtasks(taskId){
+  const {data}=await sb.from('subtasks').select('*').eq('task_id',taskId).order('created_at');
+  return data||[];
+}
+
+// ── REALTIME ──────────────────────────────────────────
+// On garde une liste des IDs qu'on vient de muter soi-même (+ timestamp).
+// Le realtime ignore UNIQUEMENT les événements portant sur ces IDs précis,
+// pendant 3s max. Les modifications des AUTRES membres passent toujours.
+const ownMutations = new Map(); // id -> timestamp
+function markMutation(id){
+  ownMutations.set(String(id), Date.now());
+  // Nettoyage automatique après 3s
+  setTimeout(()=>ownMutations.delete(String(id)), 3000);
+}
+function isOwnMutation(id){ 
+  const t = ownMutations.get(String(id));
+  return t && (Date.now() - t < 3000);
+}
+
+function subscribeRealtime(){
+  sb.channel('bfs-live')
+    .on('postgres_changes',{event:'*',schema:'public',table:'tasks'},async(payload)=>{
+      const changedId = payload.new?.id || payload.old?.id;
+      if(changedId && isOwnMutation(changedId)) return; // c'est notre propre écho → skip
+      await fetchTasks(); render();
+      if(openDetailId) refreshDetail(openDetailId);
+    })
+    .on('postgres_changes',{event:'INSERT',schema:'public',table:'comments'},async(payload)=>{
+      if(payload.new?.author === profile?.name) return; // notre propre commentaire → déjà affiché
+      if(openDetailId && payload.new?.task_id===openDetailId) refreshDetail(openDetailId);
+    })
+    .on('postgres_changes',{event:'*',schema:'public',table:'subtasks'},async(payload)=>{
+      // Mise à jour en temps réel des sous-tâches pour les autres membres
+      const changedTaskId=payload.new?.task_id||payload.old?.task_id;
+      if(openDetailId&&changedTaskId===openDetailId){
+        const subtasks=await fetchSubtasks(openDetailId);
+        renderSubtasks(openDetailId,subtasks);
+      }
+    })
+    .on('postgres_changes',{event:'*',schema:'public',table:'profiles'},async(payload)=>{
+      const changedName = payload.new?.name || payload.old?.name;
+      if(changedName && changedName === profile?.name) return; // notre propre profil
+      await fetchProfiles(); updateAssigneeSidebar(); populateAssigneeSelect();
+    })
+    .subscribe();
+}
+
+// ── CRUD TÂCHES ────────────────────────────────────────
+async function saveTask(){
+  const title=document.getElementById('f-title').value.trim();
+  if(!title){document.getElementById('f-title').focus();return;}
+  const btn=document.getElementById('save-btn');
+  btn.disabled=true;
+  const data={
+    title,
+    description:document.getElementById('f-desc').value,
+    team:document.getElementById('f-team').value,
+    priority:document.getElementById('f-priority').value,
+    assignee:document.getElementById('f-assignee').value||null,
+    deadline:document.getElementById('f-deadline').value||null,
+    status:document.getElementById('f-status').value,
+    drive_link:document.getElementById('f-drive').value.trim()||null,
+  };
+  if(editId){
+    const currentEditId=editId; editId=null;
+    markMutation(currentEditId);
+    const {error}=await sb.from('tasks').update(data).eq('id',currentEditId);
+    if(!error){
+      const i=tasks.findIndex(t=>t.id===currentEditId);
+      if(i!==-1) tasks[i]={...tasks[i],...data};
+    }
+  } else {
+    const {data:saved,error}=await sb.from('tasks').insert(data).select().single();
+    if(!error&&saved){ markMutation(saved.id); tasks.unshift(saved); }
+  }
+  btn.disabled=false;
+  closeModal();
+  render();
+}
+
+async function updateStatus(id,s){
+  markMutation(id);
+  const t=tasks.find(x=>x.id===id);
+  if(t){ t.status=s; render(); }
+  await sb.from('tasks').update({status:s}).eq('id',id);
+}
+
+async function deleteTask(id){
+  if(!confirm('Supprimer cette tâche ? Les commentaires seront aussi supprimés.'))return;
+  markMutation(id);
+  tasks=tasks.filter(t=>t.id!==id);
+  closeDetail(); render();
+  await sb.from('tasks').delete().eq('id',id);
+}
+
+async function addSubtask(taskId){
+  const inp=document.getElementById('new-subtask');
+  if(!inp)return;
+  const title=inp.value.trim();
+  if(!title)return;
+  inp.value='';
+  const {data:saved}=await sb.from('subtasks').insert({task_id:taskId,title,done:false}).select().single();
+  if(saved){
+    // Refresh subtask section only
+    const subtasks=await fetchSubtasks(taskId);
+    renderSubtasks(taskId,subtasks);
+  }
+}
+async function toggleSubtask(subtaskId,done,taskId){
+  await sb.from('subtasks').update({done}).eq('id',subtaskId);
+  const subtasks=await fetchSubtasks(taskId);
+  renderSubtasks(taskId,subtasks);
+}
+async function deleteSubtask(subtaskId,taskId){
+  await sb.from('subtasks').delete().eq('id',subtaskId);
+  const subtasks=await fetchSubtasks(taskId);
+  renderSubtasks(taskId,subtasks);
+}
+function renderSubtasks(taskId,subtasks){
+  const container=document.getElementById('subtasks-container');
+  if(!container)return;
+  const done=subtasks.filter(s=>s.done).length;
+  const total=subtasks.length;
+  const pct=total?Math.round(done/total*100):0;
+  container.innerHTML=`
+    ${total>0?`
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+        <span style="font-size:10px;color:var(--text3)">${done}/${total} complétées</span>
+        <span style="font-size:10px;color:var(--text3)">${pct}%</span>
+      </div>
+      <div class="subtask-progress"><div class="subtask-progress-fill" style="width:${pct}%"></div></div>
+      <div style="margin-top:10px">
+        ${subtasks.map(s=>`
+          <div class="subtask-row">
+            <input type="checkbox" class="subtask-check" ${s.done?'checked':''} onchange="toggleSubtask(${s.id},this.checked,${taskId})">
+            <span class="subtask-label${s.done?' done':''}">${esc(s.title)}</span>
+            <button class="subtask-del" onclick="deleteSubtask(${s.id},${taskId})" title="Supprimer">×</button>
+          </div>`).join('')}
+      </div>`:''}
+    <div class="subtask-add-row">
+      <input type="text" id="new-subtask" placeholder="Ajouter une sous-tâche..." onkeydown="if(event.key==='Enter')addSubtask(${taskId})">
+      <button class="btn btn-red" style="font-size:11px;padding:6px 12px" onclick="addSubtask(${taskId})">+</button>
+    </div>`;
+}
+
+async function addComment(taskId){
+  const txt=(document.getElementById('new-comment').value||'').trim();
+  if(!txt)return;
+  const author=profile?profile.name:'Anonyme';
+  const t=tasks.find(x=>x.id===taskId);if(!t)return;
+  // Affichage optimiste : commentaire temporaire immédiat
+  const tempComment={id:'tmp_'+Date.now(),task_id:taskId,author,text:txt,created_at:new Date().toISOString()};
+  const existingComments=await fetchComments(taskId);
+  renderDetailBody(t,[...existingComments,tempComment]);
+  await sb.from('comments').insert({task_id:taskId,author,text:txt});
+  // Remplace le temporaire par la vraie entrée BDD
+  await refreshDetail(taskId);
+}
+
+// ── RENDER ────────────────────────────────────────────
+function getFiltered(){
+  return tasks.filter(t=>{
+    if(ftTeam!=='all'&&t.team!==ftTeam)return false;
+    if(ftPrio!=='all'&&t.priority!==ftPrio)return false;
+    if(ftAssignee!=='all'&&t.assignee!==ftAssignee)return false;
+    return true;
+  });
+}
+
+function render(){
+  if(curView==='liste')renderList();
+  else renderDashboard();
+}
+
+async function toggleRowSubtasks(taskId, btn, e){
+  if(e) e.stopPropagation();
+  const isOpen = expandedRows.has(taskId);
+  if(isOpen){
+    // Fermer
+    expandedRows.delete(taskId);
+    const expandRow=document.getElementById('expand-'+taskId);
+    if(expandRow) expandRow.remove();
+    btn.classList.remove('open');
+    btn.innerHTML='<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg> Sous-tâches';
+  } else {
+    // Ouvrir
+    expandedRows.add(taskId);
+    btn.classList.add('open');
+    btn.innerHTML='<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 15 12 9 18 15"/></svg> Sous-tâches';
+    await refreshInlineSubtasks(taskId);
+  }
+}
+
+async function refreshInlineSubtasks(taskId){
+  const subtasks=await fetchSubtasks(taskId);
+  const colCount=document.querySelectorAll('.list-table thead th').length;
+  const done=subtasks.filter(s=>s.done).length;
+  const total=subtasks.length;
+  const pct=total?Math.round(done/total*100):0;
+  // Crée ou remplace la ligne d'expansion
+  let tr=document.getElementById('expand-'+taskId);
+  if(!tr){
+    tr=document.createElement('tr');
+    tr.id='expand-'+taskId;
+    tr.className='inline-subtasks';
+    const taskRow=document.getElementById('row-'+taskId);
+    if(taskRow) taskRow.insertAdjacentElement('afterend', tr);
+    else return;
+  }
+  tr.innerHTML=`<td colspan="${colCount}" style="padding:10px 14px 12px!important">
+    ${total>0?`
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+        <div style="flex:1;height:3px;background:var(--surface3);border-radius:2px;overflow:hidden">
+          <div style="height:100%;width:${pct}%;background:var(--green);border-radius:2px;transition:width .3s"></div>
+        </div>
+        <span style="font-size:10px;color:var(--text3);flex-shrink:0">${done}/${total}</span>
+      </div>
+      ${subtasks.map(s=>`
+        <div class="inline-subtask-row">
+          <input type="checkbox" class="inline-subtask-check" ${s.done?'checked':''} onclick="event.stopPropagation()" onchange="toggleSubtaskInline(${s.id},this.checked,${taskId})">
+          <span style="font-size:12px;color:${s.done?'var(--text3)':'var(--text2)'};${s.done?'text-decoration:line-through':''}">${esc(s.title)}</span>
+        </div>`).join('')}
+    `:'<div style="font-size:11px;color:var(--text3);margin-bottom:8px">Aucune sous-t&#226;che pour l&#39;instant.</div>'}
+    <div style="display:flex;gap:7px;margin-top:10px" onclick="event.stopPropagation()">
+      <input type="text" id="inline-new-subtask-${taskId}" placeholder="Ajouter une sous-tâche..." style="flex:1;font-size:11px;padding:5px 8px" onkeydown="if(event.key==='Enter'){event.stopPropagation();addSubtaskInline(${taskId});}">
+      <button class="btn btn-red" style="font-size:10px;padding:4px 10px" onclick="event.stopPropagation();addSubtaskInline(${taskId})">+</button>
+    </div>
+  </td>`;
+}
+
+async function toggleSubtaskInline(subtaskId, done, taskId){
+  await sb.from('subtasks').update({done}).eq('id',subtaskId);
+  await refreshInlineSubtasks(taskId);
+}
+
+async function addSubtaskInline(taskId){
+  const inp=document.getElementById('inline-new-subtask-'+taskId);
+  if(!inp)return;
+  const title=inp.value.trim();
+  if(!title)return;
+  inp.value='';
+  await sb.from('subtasks').insert({task_id:taskId,title,done:false});
+  await refreshInlineSubtasks(taskId);
+}
+
+function renderList(){
+  const filtered=getFiltered();
+  updateBadges(); updateAssigneeSidebar();
+  const el=document.getElementById('list-content');
+  if(!filtered.length){el.innerHTML='<div class="empty">Aucune tâche pour ces filtres</div>';return;}
+  el.innerHTML=`<table class="list-table">
+    <thead><tr>
+      <th style="width:28%">Tâche</th><th style="width:12%">Équipe</th>
+      <th style="width:9%">Priorité</th><th style="width:13%">Assigné</th>
+      <th style="width:10%">Deadline</th><th style="width:8%">Statut</th><th style="width:8%">Sous-tâches</th><th style="width:4%">💬</th><th style="width:7%">Fichiers</th>
+    </tr></thead>
+    <tbody>${filtered.map(t=>{
+      const pr=PRIOS[t.priority]||PRIOS.moyenne;
+      const tc=TEAMS[t.team]||'#606080';
+      const late=isLate(t.deadline,t.status);
+      const sc=STATUS_COLORS[t.status];
+      const av=avatarBg(t.assignee||'?');
+      return`<tr id="row-${t.id}" onclick="openDetail(${t.id})">
+        <td>${esc(t.title)}</td>
+        <td><span class="tag" style="background:${tc}22;color:${tc}">${t.team}</span></td>
+        <td><span class="tag" style="background:${pr.bg};color:${pr.color}">${pr.label}</span></td>
+        <td>${t.assignee?`<div style="display:flex;align-items:center;gap:6px"><div class="avatar" style="background:${av.bg};color:${av.color}">${initials(t.assignee)}</div>${esc(t.assignee)}</div>`:'—'}</td>
+        <td style="color:${late?'var(--red)':'var(--text3)'}">${fmtDate(t.deadline)||'—'}</td>
+        <td style="color:${sc};font-size:11px">${STATUS_LABELS[t.status]}</td>
+        <td onclick="event.stopPropagation()"><button id="expand-btn-${t.id}" class="expand-btn${expandedRows.has(t.id)?' open':''}" onclick="toggleRowSubtasks(${t.id},this,event)"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg> Sous-tâches</button></td>
+        <td style="color:var(--text3)">💬</td>
+        <td onclick="event.stopPropagation()">${t.drive_link?`<a href="${t.drive_link}" target="_blank" rel="noopener noreferrer" style="display:inline-flex;align-items:center;gap:5px;padding:4px 9px;border-radius:6px;border:1px solid #3a3a4a;background:#1e1e2a;color:#9090a8;font-size:10px;font-family:var(--font-mono);text-decoration:none;transition:all .15s;white-space:nowrap" onmouseover="this.style.borderColor='#5a5a70';this.style.color='#e8e8f0'" onmouseout="this.style.borderColor='#3a3a4a';this.style.color='#9090a8'"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>Drive</a>`:'—'}</td>
+      </tr>`;
+    }).join('')}</tbody>
+  </table>`;
+}
+
+function renderDashboard(){
+  updateBadges(); updateAssigneeSidebar();
+  const done=tasks.filter(t=>t.status==='terminé').length;
+  const inp=tasks.filter(t=>t.status==='en cours').length;
+  const late=tasks.filter(t=>isLate(t.deadline,t.status)).length;
+  const pct=tasks.length?Math.round(done/tasks.length*100):0;
+  document.getElementById('stats-grid').innerHTML=`
+    <div class="stat-card"><div class="stat-label">total tâches</div><div class="stat-value">${tasks.length}</div></div>
+    <div class="stat-card"><div class="stat-label">en cours</div><div class="stat-value" style="color:var(--blue)">${inp}</div></div>
+    <div class="stat-card"><div class="stat-label">terminées</div><div class="stat-value" style="color:var(--green)">${done}</div><div class="stat-sub">${pct}% complétées</div></div>
+    <div class="stat-card"><div class="stat-label">en retard</div><div class="stat-value" style="color:var(--red)">${late}</div></div>`;
+  const bars=document.getElementById('team-bars');
+  bars.innerHTML='';
+  Object.entries(TEAMS).forEach(([team,color])=>{
+    const tt=tasks.filter(t=>t.team===team);
+    if(!tt.length)return;
+    const td=tt.filter(t=>t.status==='terminé').length;
+    const p=Math.round(td/tt.length*100);
+    bars.innerHTML+=`<div class="team-row">
+      <div class="team-row-header">
+        <div class="team-row-name"><span class="team-dot" style="background:${color}"></span>${team}</div>
+        <div class="team-row-count">${td}/${tt.length} · ${p}%</div>
+      </div>
+      <div class="progress-bar"><div class="progress-fill" style="width:${p}%;background:${color}"></div></div>
+    </div>`;
+  });
+}
+
+function updateBadges(){
+  document.getElementById('badge-all').textContent=tasks.length;
+  Object.entries(BADGE_IDS).forEach(([team,bid])=>{
+    const el=document.getElementById(bid);
+    if(el)el.textContent=tasks.filter(x=>x.team===team).length;
+  });
+}
+
+function updateAssigneeSidebar(){
+  const names=[...new Set([...tasks.filter(t=>t.assignee).map(t=>t.assignee),...profiles.map(p=>p.name)])].sort();
+  const el=document.getElementById('assignee-sidebar');
+  el.innerHTML=`<div class="sidebar-item${ftAssignee==='all'?' active':''}" data-assignee-item onclick="filterAssignee('all',this)"><span>Tous</span></div>`
+    +names.map(n=>`<div class="sidebar-item${ftAssignee===n?' active':''}" data-assignee-item onclick="filterAssignee('${n.replace(/'/g,"\\'")}',this)">
+      <span style="display:flex;align-items:center;gap:6px;overflow:hidden;min-width:0">
+        ${profile&&n===profile.name?`<span style="width:6px;height:6px;border-radius:50%;background:var(--red);flex-shrink:0"></span>`:''}
+        <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(n)}</span>
+      </span>
+    </div>`).join('');
+}
+
+function populateAssigneeSelect(){
+  const sel=document.getElementById('f-assignee');
+  const cur=sel.value;
+  const names=[...new Set([...tasks.filter(t=>t.assignee).map(t=>t.assignee),...profiles.map(p=>p.name)])].sort();
+  sel.innerHTML='<option value="">— Non assigné —</option>'
+    +names.map(m=>`<option value="${esc(m)}"${m===cur?' selected':''}>${esc(m)}</option>`).join('');
+  if(profile&&!cur)sel.value=profile.name;
+}
+
+// ── NAVIGATION ────────────────────────────────────────
+function switchView(v,el){
+  curView=v;
+  ['liste','dashboard'].forEach(x=>document.getElementById('view-'+x).style.display=x===v?'block':'none');
+  document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
+  el.classList.add('active'); render();
+}
+function filterTeam(team,el){
+  ftTeam=team;
+  document.querySelectorAll('.sidebar-item:not([data-prio-item]):not([data-assignee-item])').forEach(e=>e.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('list-title').textContent=team==='all'?'toutes les tâches':team.toLowerCase();
+  render();
+}
+function filterPriority(p,el){
+  ftPrio=p;
+  document.querySelectorAll('[data-prio-item]').forEach(e=>e.classList.remove('active'));
+  el.classList.add('active'); render();
+}
+function filterAssignee(a,el){
+  ftAssignee=a;
+  document.querySelectorAll('[data-assignee-item]').forEach(e=>e.classList.remove('active'));
+  el.classList.add('active'); render();
+}
+
+// ── MODAL TÂCHE ───────────────────────────────────────
+function openNewTask(){
+  editId=null;
+  document.getElementById('modal-title').textContent='nouvelle tâche';
+  document.getElementById('f-title').value='';
+  document.getElementById('f-desc').value='';
+  document.getElementById('f-deadline').value='';
+  document.getElementById('f-priority').value='moyenne';
+  document.getElementById('f-status').value='backlog';
+  document.getElementById('f-drive').value='';
+  document.getElementById('f-team').value=profile?profile.team:'Pôle Élec';
+  populateAssigneeSelect();
+  document.getElementById('modal-bg').classList.add('open');
+}
+function closeModal(){document.getElementById('modal-bg').classList.remove('open');}
+
+function editTask(id){
+  const t=tasks.find(x=>x.id===id);if(!t)return;
+  editId=id;
+  document.getElementById('modal-title').textContent='modifier la tâche';
+  document.getElementById('f-title').value=t.title;
+  document.getElementById('f-desc').value=t.description||'';
+  document.getElementById('f-team').value=t.team;
+  document.getElementById('f-priority').value=t.priority;
+  document.getElementById('f-deadline').value=t.deadline||'';
+  document.getElementById('f-status').value=t.status;
+  populateAssigneeSelect();
+  document.getElementById('f-assignee').value=t.assignee||'';
+  document.getElementById('f-drive').value=t.drive_link||'';
+  closeDetail();
+  document.getElementById('modal-bg').classList.add('open');
+}
+
+// ── DETAIL PANEL ──────────────────────────────────────
+async function openDetail(id){
+  openDetailId=id;
+  const t=tasks.find(x=>x.id===id);if(!t)return;
+  document.getElementById('detail-title').textContent=t.title;
+  document.getElementById('detail-overlay').classList.add('open');
+  document.getElementById('detail-panel').classList.add('open');
+  await refreshDetail(id);
+}
+
+// Rendu partagé du panneau de détail (utilisé par refreshDetail et addComment)
+function renderDetailBody(t, comments, subtasks=[]){
+  const id=t.id;
+  const pr=PRIOS[t.priority]||PRIOS.moyenne;
+  const tc=TEAMS[t.team]||'#606080';
+  const sc=STATUS_COLORS[t.status];
+  const late=isLate(t.deadline,t.status);
+  const av=avatarBg(profile?profile.name:'?');
+  // Sauvegarde le texte en cours de frappe avant de re-render
+  const draftComment=(document.getElementById('new-comment')||{}).value||'';
+  document.getElementById('detail-body').innerHTML=`
+    <div style="display:flex;gap:7px;flex-wrap:wrap;margin-bottom:18px">
+      <span class="tag" style="background:${tc}22;color:${tc}">${t.team}</span>
+      <span class="tag" style="background:${pr.bg};color:${pr.color}">${pr.label} priorité</span>
+      <span class="tag" style="background:${sc}22;color:${sc}">${STATUS_LABELS[t.status]}</span>
+    </div>
+    ${t.description?`<div class="detail-section"><p style="font-size:12px;color:var(--text2);line-height:1.65">${esc(t.description)}</p></div>`:''}
+    ${t.drive_link?`<div class="detail-section"><a href="${t.drive_link}" target="_blank" rel="noopener noreferrer" style="display:inline-flex;align-items:center;gap:7px;padding:7px 14px;border-radius:8px;border:1px solid #3a3a4a;background:#1e1e2a;color:#e8e8f0;font-size:12px;font-family:var(--font-mono);text-decoration:none;transition:border-color .15s" onmouseover="this.style.borderColor='#5a5a70'" onmouseout="this.style.borderColor='#3a3a4a'"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>Fichiers Drive</a></div>`:''}
+    <div class="meta-grid">
+      <div><div class="detail-label">Assigné à</div><div class="detail-value">${esc(t.assignee||'Non assigné')}</div></div>
+      <div><div class="detail-label">Deadline</div><div class="detail-value${late?' late':''}">${fmtDate(t.deadline)||'—'}</div></div>
+    </div>
+    <div class="detail-section">
+      <div class="detail-label">Statut</div>
+      <select style="width:100%;margin-top:5px" onchange="updateStatus(${id},this.value)">
+        ${STATUSES.map(s=>`<option value="${s}"${s===t.status?' selected':''}>${STATUS_LABELS[s]}</option>`).join('')}
+      </select>
+    </div>
+    <div class="action-row">
+      <button class="btn" style="font-size:11px" onclick="editTask(${id})">✏️ modifier</button>
+      <button class="btn" style="font-size:11px;color:var(--red);border-color:var(--red-mid)" onclick="deleteTask(${id})">🗑 supprimer</button>
+    </div>
+    <div class="detail-section">
+      <div class="detail-label" style="margin-bottom:10px">Sous-tâches</div>
+      <div id="subtasks-container"></div>
+    </div>
+    <div class="detail-section">
+      <div class="detail-label">commentaires (${comments.length})</div>
+      <div style="margin-top:10px">
+        ${comments.map(c=>{
+          const cav=avatarBg(c.author);
+          const isMe=profile&&c.author===profile.name;
+          const isTemp=String(c.id).startsWith('tmp_');
+          return`<div class="comment" style="opacity:${isTemp?'0.6':'1'}">
+            <div class="comment-avatar"><div class="avatar" style="background:${cav.bg};color:${cav.color}">${initials(c.author)}</div></div>
+            <div class="comment-body">
+              <div class="comment-author">${esc(c.author)}${isMe?'<span class="me-badge">moi</span>':''}${isTemp?'<span style="font-size:9px;color:var(--text3)">envoi...</span>':''}</div>
+              <div class="comment-text">${esc(c.text)}</div>
+              <div class="comment-time">${isTemp?"A l'instant":fmtTs(c.created_at)}</div>
+            </div>
+          </div>`;}).join('')}
+        ${comments.length===0?"<div style=\"font-size:11px;color:var(--text3);margin-bottom:12px\">Aucun commentaire.</div>":""}
+      </div>
+      <div class="comment-box">
+        <div class="comment-box-header">
+          ${profile?`<div class="avatar" style="background:${av.bg};color:${av.color}">${initials(profile.name)}</div>
+          <span style="font-size:11px;font-weight:500">${esc(profile.name)}</span>
+          <span style="font-size:10px;color:var(--text3)">${esc(profile.team)}</span>`:''}
+        </div>
+        <textarea id="new-comment" placeholder="Écrire un commentaire..." style="width:100%;font-size:12px;min-height:64px;background:var(--surface);border-color:var(--border)">${esc(draftComment)}</textarea>
+        <div style="display:flex;justify-content:flex-end;margin-top:8px">
+          <button class="btn btn-red" style="font-size:11px" onclick="addComment(${id})">Envoyer</button>
+        </div>
+      </div>
+    </div>`;
+}
+
+async function refreshDetail(id){
+  const t=tasks.find(x=>x.id===id);if(!t)return;
+  const [comments,subtasks]=await Promise.all([fetchComments(id),fetchSubtasks(id)]);
+  renderDetailBody(t,comments,subtasks);
+  renderSubtasks(id,subtasks);
+}
+
+function closeDetail(){
+  document.getElementById('detail-overlay').classList.remove('open');
+  document.getElementById('detail-panel').classList.remove('open');
+  openDetailId=null;
+}
+
+// ── KEYBOARD / CLICK OUTSIDE ──────────────────────────
+document.getElementById('modal-bg').addEventListener('click',function(e){if(e.target===this)closeModal();});
+document.getElementById('profil-modal-bg').addEventListener('click',function(e){if(e.target===this)closeEditProfile();});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeModal();closeDetail();closeEditProfile();}});
+
+// ── BOOT ──────────────────────────────────────────────
+(async()=>{
+  // Vérification de la config
+  if(SUPABASE_URL.includes('VOTRE_PROJECT_ID') || SUPABASE_ANON.includes('VOTRE_ANON_KEY')){
+    showLoaderError(
+      '⚙️ Configuration manquante',
+      'Ouvre ce fichier dans un éditeur de texte et remplace VOTRE_PROJECT_ID et VOTRE_ANON_KEY par tes vraies clés Supabase (Settings → API).'
+    );
+    return;
+  }
+
+  // Timeout de 8 secondes
+  const timeout = setTimeout(()=>{
+    showLoaderError(
+      '❌ Impossible de joindre Supabase',
+      'Vérifie que ta Project URL et ta Anon Key sont correctes dans le fichier HTML (lignes SUPABASE_URL et SUPABASE_ANON). Vérifie aussi ta connexion internet.'
+    );
+  }, 8000);
+
+  try {
+    loadLocalProfile();
+    // Test de connexion rapide
+    const {error} = await sb.from('tasks').select('id', {count:'exact', head:true});
+    clearTimeout(timeout);
+    if(error) throw error;
+
+    if(profile){
+      await initApp();
+    } else {
+      showLoader(false);
+      document.getElementById('onboarding').classList.add('show');
+    }
+  } catch(err) {
+    clearTimeout(timeout);
+    showLoaderError(
+      '❌ Erreur de connexion',
+      err.message || 'Vérifie ta configuration Supabase et que les tables ont bien été créées.'
+    );
+  }
+
+  document.getElementById('ob-name').addEventListener('keydown',e=>{if(e.key==='Enter')saveProfile();});
+})();
+</script>
+</body>
+</html>
