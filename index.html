@@ -854,7 +854,19 @@ ALTER TABLE subtask_comments DISABLE ROW LEVEL SECURITY;
 -- Même chose pour subtasks si pas encore fait :
 ALTER TABLE subtasks DISABLE ROW LEVEL SECURITY;
 
--- 3. Le champ "assignee" des tâches stocke désormais un tableau JSON
+-- 3. Table dépenses (synchronisée via Supabase)
+CREATE TABLE IF NOT EXISTS expenses (
+  id         bigint generated always as identity primary key,
+  description text not null,
+  amount     numeric(10,2) not null,
+  cat        text not null default 'Autre',
+  team       text not null,
+  date       date not null,
+  created_at timestamptz default now()
+);
+ALTER TABLE expenses DISABLE ROW LEVEL SECURITY;
+
+-- 4. Le champ "assignee" des tâches stocke désormais un tableau JSON
 --    Ex : '["Alice Martin","Bob Dupont"]'
 --    Aucune migration de schéma nécessaire, le type TEXT existant suffit.
 ═══════════════════════════════════════════════════════════════════════════════ */
@@ -1410,6 +1422,11 @@ function subscribeRealtime(){
         const cmts=await fetchSubtaskComments(stEditSubtaskId);
         renderSubtaskComments(cmts);
       }
+    })
+    .on('postgres_changes',{event:'*',schema:'public',table:'expenses'},async(payload)=>{
+      await loadExpenses();
+      renderExpenses();
+      renderDashboardExpenses();
     })
     .on('postgres_changes',{event:'*',schema:'public',table:'profiles'},async(payload)=>{
       const cn=payload.new?.name||payload.old?.name;
@@ -2289,33 +2306,40 @@ function calGoToday(){
 }
 
 // ── EXPENSES ──────────────────────────────────────────────
-function loadExpenses(){
-  try{const s=localStorage.getItem('bfs_expenses');expenses=s?JSON.parse(s):[];}
-  catch(e){expenses=[];}
-}
-function saveExpenses(){
-  try{localStorage.setItem('bfs_expenses',JSON.stringify(expenses));}catch(e){}
+async function loadExpenses(){
+  const {data,error}=await sb.from('expenses').select('*').order('created_at',{ascending:false});
+  if(!error)expenses=data||[];
 }
 
-function addExpense(){
-  const desc=document.getElementById('exp-desc').value.trim();
-  const amount=parseFloat(document.getElementById('exp-amount').value);
+async function addExpense(){
+  const descEl=document.getElementById('exp-desc');
+  const amountEl=document.getElementById('exp-amount');
+  const desc=descEl.value.trim();
+  const amount=parseFloat(amountEl.value);
   const cat=document.getElementById('exp-cat').value;
   const team=document.getElementById('exp-team').value;
   const date=document.getElementById('exp-date').value||new Date().toISOString().slice(0,10);
-  if(!desc){document.getElementById('exp-desc').focus();return;}
-  if(!amount||isNaN(amount)||amount<=0){document.getElementById('exp-amount').focus();return;}
-  expenses.unshift({id:Date.now(),desc,amount,cat,team,date});
-  saveExpenses();
-  document.getElementById('exp-desc').value='';
-  document.getElementById('exp-amount').value='';
-  renderExpenses();
-  renderDashboardExpenses();
+  if(!desc){descEl.focus();return;}
+  if(!amount||isNaN(amount)||amount<=0){amountEl.focus();return;}
+  const addBtn=document.querySelector('.expenses-add-form .btn-red');
+  if(addBtn){addBtn.disabled=true;addBtn.textContent='Ajout...';}
+  const {data:saved,error}=await sb.from('expenses').insert({description:desc,amount,cat,team,date}).select().single();
+  if(error){
+    alert('Erreur : '+error.message);
+  } else {
+    expenses.unshift(saved);
+    descEl.value='';
+    amountEl.value='';
+    renderExpenses();
+    renderDashboardExpenses();
+  }
+  if(addBtn){addBtn.disabled=false;addBtn.textContent='+ Ajouter';}
 }
 
-function deleteExpense(id){
+async function deleteExpense(id){
   expenses=expenses.filter(e=>e.id!==id);
-  saveExpenses();renderExpenses();renderDashboardExpenses();
+  renderExpenses();renderDashboardExpenses();
+  await sb.from('expenses').delete().eq('id',id);
 }
 
 function fmtEuro(n){return n.toLocaleString('fr-FR',{minimumFractionDigits:2,maximumFractionDigits:2})+' €';}
@@ -2376,7 +2400,7 @@ function renderExpenses(){
       <div class="expense-list">
         ${exps.map(e=>`<div class="expense-row">
           <div class="expense-cat-dot" style="background:${EXP_CAT_COLORS[e.cat]||'#6060a0'}"></div>
-          <div class="expense-desc" title="${esc(e.desc)}">${esc(e.desc)}</div>
+          <div class="expense-desc" title="${esc(e.description)}">${esc(e.description)}</div>
           <div class="expense-cat-label">${esc(e.cat)}</div>
           <div class="expense-date">${fmtDate(e.date)}</div>
           <div class="expense-amount">${fmtEuro(e.amount)}</div>
@@ -2389,8 +2413,7 @@ function renderExpenses(){
 
 async function initApp(){
   showLoader(true);
-  await Promise.all([fetchTasks(),fetchProfiles()]);
-  loadExpenses();
+  await Promise.all([fetchTasks(),fetchProfiles(),loadExpenses()]);
   loadNotifications();
   initTheme();
   renderTopbarProfile();
