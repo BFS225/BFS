@@ -362,8 +362,18 @@ textarea{resize:vertical;line-height:1.6}
 .cal-day.today .cal-day-num{color:#fff}
 .cal-event{font-size:9px;padding:2px 6px;border-radius:4px;margin-bottom:3px;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:500;transition:opacity var(--transition);line-height:1.4}
 .cal-event:hover{opacity:.8}
-.cal-more{font-size:9px;color:var(--text3);padding:1px 4px;cursor:pointer}
-.cal-more:hover{color:var(--text2)}
+.cal-more{font-size:9px;color:var(--text3);padding:2px 6px;cursor:pointer;border-radius:4px;transition:background var(--transition),color var(--transition);display:inline-block}
+.cal-more:hover{color:var(--text2);background:var(--surface3)}
+/* Calendar overflow popup */
+.cal-more-popup{position:fixed;z-index:500;background:var(--surface);border:1px solid var(--border2);border-radius:var(--radius-xl);padding:8px;box-shadow:var(--shadow-lg);min-width:200px;max-width:260px;display:none;animation:modal-in .12s ease}
+.cal-more-popup.open{display:block}
+.cal-more-popup-header{display:flex;align-items:center;justify-content:space-between;padding:4px 6px 8px;border-bottom:1px solid var(--border);margin-bottom:6px}
+.cal-more-popup-date{font-size:10px;font-weight:700;color:var(--text);font-family:var(--font-head)}
+.cal-more-popup-close{background:none;border:none;color:var(--text3);cursor:pointer;font-size:14px;line-height:1;padding:0 2px;border-radius:3px;transition:color var(--transition)}
+.cal-more-popup-close:hover{color:var(--text);background:var(--surface3)}
+.cal-more-popup-event{font-size:10px;padding:5px 8px;border-radius:5px;margin-bottom:3px;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:500;line-height:1.4;transition:opacity .1s}
+.cal-more-popup-event:last-child{margin-bottom:0}
+.cal-more-popup-event:hover{opacity:.8}
 /* Agenda view */
 .cal-agenda{padding:16px 22px 22px}
 .cal-agenda-week{margin-bottom:24px}
@@ -406,9 +416,168 @@ textarea{resize:vertical;line-height:1.6}
 .expenses-by-cat{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px}
 .expense-cat-chip{display:flex;align-items:center;gap:6px;padding:5px 11px;border-radius:20px;background:var(--surface2);border:1px solid var(--border);font-size:11px;color:var(--text2)}
 .expenses-empty{text-align:center;padding:28px 0;color:var(--text3);font-size:12px}
+
+/* ══════════════════════════════════════════════════════
+   📱 RESPONSIVE MOBILE  (≤ 768px)
+   ══════════════════════════════════════════════════════ */
+@media (max-width: 768px) {
+
+  /* ── TOPBAR ── */
+  .topbar{padding:0 12px;gap:8px;height:52px}
+  .logo-sub{display:none}
+  .logo div>div:first-child{font-size:13px}
+
+  /* Cacher nav desktop, search, bouton nouvelle tâche */
+  .nav{display:none}
+  .search-wrap{display:none}
+  .topbar>.btn.btn-red{display:none}
+
+  /* Profil chip compact : avatar seul */
+  .profil-name,.profil-team-label{display:none}
+  .profil-chip{padding:3px;border-radius:50%;gap:0}
+
+  /* ── LAYOUT ── */
+  .layout{margin-top:52px;height:calc(100vh - 52px - 56px);flex-direction:column}
+
+  /* ── SIDEBAR → DRAWER ── */
+  .sidebar{
+    position:fixed;top:52px;left:0;bottom:56px;
+    z-index:80;width:260px;
+    transform:translateX(-100%);
+    transition:transform .25s cubic-bezier(.4,0,.2,1);
+    box-shadow:4px 0 24px rgba(0,0,0,.5);
+  }
+  .sidebar.open{transform:translateX(0)}
+  .sidebar-overlay{
+    display:none;position:fixed;inset:0;top:52px;bottom:56px;
+    background:rgba(0,0,0,.55);z-index:79;
+    backdrop-filter:blur(2px);
+  }
+  .sidebar-overlay.open{display:block}
+
+  /* ── MAIN ── */
+  .main{padding:16px 14px 20px;overflow:auto;flex:1}
+  .page-header{margin-bottom:16px;flex-wrap:wrap;gap:8px}
+  .page-title{font-size:17px}
+
+  /* ── BOTTOM NAV ── */
+  .bottom-nav{
+    display:flex;position:fixed;bottom:0;left:0;right:0;
+    height:56px;background:var(--topbar-bg);
+    border-top:1px solid var(--border);
+    backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
+    z-index:60;align-items:stretch;
+  }
+  .bottom-nav-btn{
+    flex:1;display:flex;flex-direction:column;align-items:center;
+    justify-content:center;gap:3px;border:none;background:transparent;
+    cursor:pointer;color:var(--text3);font-size:9px;
+    font-family:var(--font-mono);letter-spacing:.04em;
+    transition:color var(--transition);padding:6px 2px;
+    -webkit-tap-highlight-color:transparent;
+  }
+  .bottom-nav-btn svg{width:18px;height:18px;flex-shrink:0}
+  .bottom-nav-btn.active{color:var(--red)}
+  .bottom-nav-btn .bnav-emoji{font-size:18px;line-height:1}
+
+  /* ── FAB (+ Nouvelle tâche) ── */
+  .fab{
+    position:fixed;bottom:68px;right:16px;z-index:70;
+    width:50px;height:50px;border-radius:50%;
+    background:var(--red);border:none;
+    color:#fff;font-size:24px;line-height:1;
+    display:flex;align-items:center;justify-content:center;
+    box-shadow:0 4px 16px rgba(232,64,64,.45);
+    cursor:pointer;transition:transform .15s,box-shadow .15s;
+  }
+  .fab:active{transform:scale(.93);box-shadow:0 2px 8px rgba(232,64,64,.3)}
+
+  /* ── DASHBOARD ── */
+  .stats-grid{grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:16px}
+  .stat-value{font-size:24px}
+  #view-dashboard>div:last-child{grid-template-columns:1fr!important;gap:14px}
+
+  /* ── LIST TABLE → cards ── */
+  .list-wrap{border-radius:var(--radius-lg)}
+  .list-table thead{display:none}
+  .list-table tbody tr{
+    display:flex;flex-direction:column;gap:6px;
+    padding:12px 14px;border-bottom:1px solid var(--border);
+    cursor:pointer;position:relative;
+  }
+  .list-table tbody tr:hover{background:var(--surface2)}
+  .list-table td{padding:0!important;border:none!important;font-size:12px}
+  .list-table td:first-child{font-size:13px;max-width:100%}
+  .task-title-cell{white-space:normal;max-width:100%}
+  /* Cacher colonnes peu utiles sur mobile */
+  .list-table td:nth-child(3),
+  .list-table td:nth-child(5){display:none}
+
+  /* ── KANBAN ── */
+  .kanban-wrap{
+    display:flex;flex-direction:column;
+    height:auto;overflow-x:visible;gap:10px;
+  }
+  .kanban-col{flex:0 0 auto;width:100%;max-height:none}
+
+  /* ── MODAL ── */
+  .modal-bg{align-items:flex-end;padding:0}
+  .modal{
+    width:100%!important;max-width:100%!important;
+    border-radius:var(--radius-xl) var(--radius-xl) 0 0;
+    max-height:92vh;
+  }
+  .modal-sm{width:100%!important}
+  .field-row{grid-template-columns:1fr!important}
+
+  /* ── DETAIL PANEL ── */
+  .detail-panel{
+    width:100%!important;top:52px;
+    border-left:none;border-top:1px solid var(--border2);
+  }
+
+  /* ── CALENDAR ── */
+  .cal-day{min-height:56px;padding:4px 3px}
+  .cal-month-title{font-size:13px;min-width:120px}
+  .cal-legend{flex-wrap:wrap;gap:8px}
+
+  /* ── EXPENSES FORM ── */
+  .expenses-add-form{flex-direction:column;gap:10px}
+  .expenses-add-form input,.expenses-add-form select{width:100%!important}
+  .expenses-add-form .btn-red{width:100%}
+
+  /* ── SEARCH (ouvre en fullscreen sur mobile) ── */
+  .search-results{width:calc(100vw - 24px);left:12px;transform:none;top:60px}
+
+  /* ── NOTIF PANEL ── */
+  .notif-panel{width:calc(100vw - 24px);right:12px}
+
+  /* ── ONBOARDING ── */
+  .onboarding-card{width:calc(100vw - 32px);padding:32px 22px}
+
+  /* ── PIE CHART ── */
+  .pie-wrap{flex-direction:column;align-items:flex-start;gap:16px}
+
+  /* ── BOTTOM NAV hidden on desktop ── */
+}
+
+@media (min-width: 769px) {
+  .bottom-nav{display:none}
+  .fab{display:none}
+  .sidebar-overlay{display:none!important}
+}
 </style>
 </head>
 <body>
+
+<!-- ══ CAL MORE POPUP ══ -->
+<div class="cal-more-popup" id="cal-more-popup">
+  <div class="cal-more-popup-header">
+    <div class="cal-more-popup-date" id="cal-more-popup-date"></div>
+    <button class="cal-more-popup-close" onclick="closeCalMorePopup()">×</button>
+  </div>
+  <div id="cal-more-popup-list"></div>
+</div>
 
 <!-- ══ LOADER ══ -->
 <div class="loader" id="loader">
@@ -478,7 +647,7 @@ textarea{resize:vertical;line-height:1.6}
     <span class="search-icon" aria-hidden="true">
       <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
     </span>
-    <input class="search-input" id="global-search" type="text" placeholder="Rechercher une tâche…" oninput="onSearchInput(this.value)" onkeydown="onSearchKey(event)" autocomplete="off">
+    <input class="search-input" id="global-search" type="text" placeholder="Rechercher…" oninput="onSearchInput(this.value)" onkeydown="onSearchKey(event)" autocomplete="off">
   </div>
   <!-- Notif bell -->
   <button class="notif-btn" id="notif-btn" onclick="toggleNotifPanel(event)" title="Notifications">
@@ -516,6 +685,40 @@ textarea{resize:vertical;line-height:1.6}
   </div>
   <div class="notif-list" id="notif-list"></div>
 </div>
+
+<!-- ══ SIDEBAR OVERLAY (mobile) ══ -->
+<div class="sidebar-overlay" id="sidebar-overlay" onclick="closeSidebar()"></div>
+
+<!-- ══ BOTTOM NAV (mobile) ══ -->
+<nav class="bottom-nav" id="bottom-nav" style="display:none">
+  <button class="bottom-nav-btn active" id="bnav-liste" onclick="switchView('liste',null)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+    Liste
+  </button>
+  <button class="bottom-nav-btn" id="bnav-kanban" onclick="switchView('kanban',null)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="5" height="18" rx="1"/><rect x="10" y="3" width="5" height="11" rx="1"/><rect x="17" y="3" width="5" height="15" rx="1"/></svg>
+    Kanban
+  </button>
+  <button class="bottom-nav-btn" id="bnav-dashboard" onclick="switchView('dashboard',null)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+    Dashboard
+  </button>
+  <button class="bottom-nav-btn" id="bnav-calendar" onclick="switchView('calendar',null)">
+    <span class="bnav-emoji">📅</span>
+    Agenda
+  </button>
+  <button class="bottom-nav-btn" id="bnav-depenses" onclick="switchView('depenses',null)">
+    <span class="bnav-emoji">💸</span>
+    Dépenses
+  </button>
+  <button class="bottom-nav-btn" id="bnav-filters" onclick="toggleSidebar()">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="6" x2="20" y2="6"/><line x1="8" y1="12" x2="16" y2="12"/><line x1="11" y1="18" x2="13" y2="18"/></svg>
+    Filtres
+  </button>
+</nav>
+
+<!-- ══ FAB ══ -->
+<button class="fab" id="fab" style="display:none" onclick="openNewTask()">+</button>
 
 <!-- ══ APP LAYOUT ══ -->
 <div class="layout" id="app-layout" style="display:none">
@@ -2018,6 +2221,7 @@ function goToDepenses(){
 }
 function switchView(v,el){
   curView=v;
+  if(isMobile())updateBottomNav(v);
   ['liste','kanban','dashboard','calendar','depenses'].forEach(x=>{
     const el=document.getElementById('view-'+x);
     if(el)el.style.display=x===v?'block':'none';
@@ -2233,7 +2437,7 @@ function renderCalMonth(){
             const color=late?'var(--red)':tc;
             return`<div class="cal-event" style="background:${color}22;color:${color}" title="${esc(t.title)}" onclick="openDetail(${t.id})">${esc(t.title)}</div>`;
           }).join('')}
-          ${more>0?`<div class="cal-more">+${more} autre${more>1?'s':''}</div>`:''}
+          ${more>0?`<div class="cal-more" onclick="openCalMorePopup(event,'${key}')">+${more} autre${more>1?'s':''}</div>`:''}
         </div>`;
       }).join('')}
     </div>
@@ -2293,6 +2497,50 @@ function renderCalAgenda(){
         </div>
       `).join('')}
     </div>`;
+}
+
+// ── CALENDAR MORE POPUP ────────────────────────────────
+function openCalMorePopup(e,dateKey){
+  e.stopPropagation();
+  const MONTHS_FR=['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc'];
+  // Rebuild evMap inline
+  const evMap={};
+  tasks.filter(t=>t.deadline).forEach(t=>{
+    if(!evMap[t.deadline])evMap[t.deadline]=[];
+    evMap[t.deadline].push(t);
+  });
+  const evs=evMap[dateKey]||[];
+  const hidden=evs.slice(3); // only the ones not shown
+  if(!hidden.length)return;
+
+  const dt=new Date(dateKey+'T00:00:00');
+  const popup=document.getElementById('cal-more-popup');
+  document.getElementById('cal-more-popup-date').textContent=`${dt.getDate()} ${MONTHS_FR[dt.getMonth()]} — ${evs.length} tâches`;
+  document.getElementById('cal-more-popup-list').innerHTML=hidden.map(t=>{
+    const tc=TEAMS[t.team]||'#606080';
+    const late=isLate(t.deadline,t.status);
+    const color=late?'var(--red)':tc;
+    return`<div class="cal-more-popup-event" style="background:${color}22;color:${color}" title="${esc(t.title)}" onclick="closeCalMorePopup();openDetail(${t.id})">${esc(t.title)}</div>`;
+  }).join('');
+
+  // Position near the clicked element
+  const rect=e.currentTarget.getBoundingClientRect();
+  popup.style.display='block';
+  const pw=popup.offsetWidth||220;
+  const ph=popup.offsetHeight||100;
+  let left=rect.left;
+  let top=rect.bottom+4;
+  if(left+pw>window.innerWidth-8)left=window.innerWidth-pw-8;
+  if(top+ph>window.innerHeight-8)top=rect.top-ph-4;
+  popup.style.left=left+'px';
+  popup.style.top=top+'px';
+  popup.classList.add('open');
+}
+
+function closeCalMorePopup(){
+  const popup=document.getElementById('cal-more-popup');
+  popup.classList.remove('open');
+  popup.style.display='none';
 }
 
 function calNavigate(dir){
@@ -2423,7 +2671,7 @@ async function initApp(){
   renderNotifBadge();
   // Setup mention listeners after DOM is ready
   setTimeout(()=>setupMentionListeners(),200);
-  showLoader(false);render();subscribeRealtime();
+  showLoader(false);render();subscribeRealtime();initMobile();
 }
 
 function renderMentions(text){
@@ -2452,7 +2700,7 @@ function closeDetail(){
 document.getElementById('modal-bg').addEventListener('click',function(e){if(e.target===this)closeModal();});
 document.getElementById('profil-modal-bg').addEventListener('click',function(e){if(e.target===this)closeEditProfile();});
 document.getElementById('subtask-modal-bg').addEventListener('click',function(e){if(e.target===this)closeSubtaskModal();});
-document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeModal();closeDetail();closeEditProfile();closeSubtaskModal();closeSearch();closeNotifPanel();closeMentionDropdown();}});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeModal();closeDetail();closeEditProfile();closeSubtaskModal();closeSearch();closeNotifPanel();closeMentionDropdown();closeCalMorePopup();}});
 document.addEventListener('click',e=>{
   // Close search
   if(!e.target.closest('#global-search')&&!e.target.closest('#search-results'))closeSearch();
@@ -2462,6 +2710,8 @@ document.addEventListener('click',e=>{
   if(!e.target.closest('#profil-chip'))document.getElementById('profil-dropdown').classList.remove('open');
   // Close mention dropdown
   if(!e.target.closest('#mention-dropdown')&&!e.target.closest('textarea'))closeMentionDropdown();
+  // Close cal more popup
+  if(!e.target.closest('#cal-more-popup')&&!e.target.closest('.cal-more'))closeCalMorePopup();
 });
 
 // ── BOOT ──────────────────────────────────────────────
@@ -2483,6 +2733,50 @@ document.addEventListener('click',e=>{
   }
   document.getElementById('ob-name').addEventListener('keydown',e=>{if(e.key==='Enter')saveProfile();});
 })();
+
+// ══════════════════════════════════════════════════════
+//  📱 MOBILE HELPERS
+// ══════════════════════════════════════════════════════
+function isMobile(){return window.innerWidth<=768;}
+
+function initMobile(){
+  if(isMobile()){
+    document.getElementById('bottom-nav').style.display='flex';
+    document.getElementById('fab').style.display='flex';
+  }
+}
+
+function toggleSidebar(){
+  const sb=document.getElementById('app-layout').querySelector('.sidebar');
+  const ov=document.getElementById('sidebar-overlay');
+  const isOpen=sb.classList.contains('open');
+  sb.classList.toggle('open',!isOpen);
+  ov.classList.toggle('open',!isOpen);
+  document.getElementById('bnav-filters').classList.toggle('active',!isOpen);
+}
+
+function closeSidebar(){
+  const sb=document.getElementById('app-layout').querySelector('.sidebar');
+  const ov=document.getElementById('sidebar-overlay');
+  sb.classList.remove('open');
+  ov.classList.remove('open');
+  document.getElementById('bnav-filters').classList.remove('active');
+}
+
+function updateBottomNav(view){
+  if(!isMobile())return;
+  document.querySelectorAll('.bottom-nav-btn').forEach(b=>b.classList.remove('active'));
+  const btn=document.getElementById('bnav-'+view);
+  if(btn)btn.classList.add('active');
+  closeSidebar();
+}
+
+window.addEventListener('resize',()=>{
+  const isMob=isMobile();
+  document.getElementById('bottom-nav').style.display=isMob?'flex':'none';
+  document.getElementById('fab').style.display=isMob?'flex':'none';
+});
+
 </script>
 </body>
 </html>
