@@ -1891,16 +1891,15 @@ function closeMentionDropdown(){
 
 // Detect @mentions in comment text and trigger notif
 function processMentionsInComment(text,taskId,subtaskId){
-  const names=getAllMemberNames();
-  const mentioned=names.filter(n=>text.includes('@'+n));
+  if(!profile)return;
   const origin=subtaskId?'une sous-tâche':'un commentaire';
-  mentioned.forEach(n=>{
-    if(profile&&n===profile.name)return; // don't self-notify
-    addNotification(`<strong>${esc(profile?profile.name:'Quelqu\'un')}</strong> vous a mentionné dans ${origin}`,taskId,subtaskId||null);
-  });
-  // Also notify if @me is in the text
-  if(profile&&text.includes('@'+profile.name)){
-    addNotification(`Vous avez été mentionné dans ${origin}`,taskId,subtaskId||null);
+  // Only notify the current user if THEY are mentioned AND they didn't write it themselves
+  // (each user has their own local notifications — we can't push to others)
+  if(text.includes('@'+profile.name)){
+    // Someone else mentioned me — but if I'm the one posting, skip (self-mention)
+    // The author is always profile.name since we're the one submitting the comment
+    // So: never notify on self-post. This function is called by the poster, not the reader.
+    return; // No self-notification ever — the OTHER user will see it on their own device via realtime
   }
 }
 
@@ -2157,7 +2156,12 @@ function subscribeRealtime(){
       if(openDetailId)refreshDetail(openDetailId);
     })
     .on('postgres_changes',{event:'INSERT',schema:'public',table:'comments'},async(payload)=>{
-      if(payload.new?.author===profile?.name)return;
+      if(payload.new?.author===profile?.name)return; // notre propre commentaire, déjà affiché
+      // Notifier si on est mentionné par quelqu'un d'autre
+      if(profile&&payload.new?.text&&payload.new.text.includes('@'+profile.name)){
+        const origin='un commentaire';
+        addNotification(`<strong>${esc(payload.new.author||'Quelqu\'un')}</strong> vous a mentionné dans ${origin}`,payload.new.task_id,null);
+      }
       if(openDetailId&&Number(payload.new?.task_id)===Number(openDetailId))refreshDetail(openDetailId);
     })
     .on('postgres_changes',{event:'DELETE',schema:'public',table:'comments'},async(payload)=>{
@@ -2178,10 +2182,13 @@ function subscribeRealtime(){
       render();
     })
     .on('postgres_changes',{event:'*',schema:'public',table:'subtask_comments'},async(payload)=>{
-      // Pour INSERT : vérifier author. Pour DELETE/UPDATE : payload.new peut être null → toujours rafraîchir
       const subtaskId=Number(payload.new?.subtask_id||payload.old?.subtask_id);
       const author=payload.new?.author;
       if(author&&author===profile?.name)return; // C'est notre propre INSERT, déjà affiché
+      // Notifier si on est mentionné par quelqu'un d'autre
+      if(payload.event==='INSERT'&&profile&&payload.new?.text&&payload.new.text.includes('@'+profile.name)){
+        addNotification(`<strong>${esc(author||'Quelqu\'un')}</strong> vous a mentionné dans une sous-tâche`,payload.new.task_id||null,subtaskId||null);
+      }
       if(stEditSubtaskId&&subtaskId===Number(stEditSubtaskId)){
         const cmts=await fetchSubtaskComments(stEditSubtaskId);
         renderSubtaskComments(cmts);
