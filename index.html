@@ -135,7 +135,7 @@ body{font-family:var(--font-mono);background:var(--bg);color:var(--text);min-hei
 .ob-error{font-size:11px;color:var(--red);margin-top:8px;display:none}
 
 /* ── TOPBAR ── */
-.topbar{position:fixed;top:0;left:0;right:0;z-index:50;background:var(--topbar-bg);border-bottom:1px solid var(--border);-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);display:flex;align-items:center;gap:10px;padding:0 16px;height:54px;overflow:hidden}
+.topbar{position:fixed;top:0;left:0;right:0;z-index:50;background:var(--topbar-bg);border-bottom:1px solid var(--border);-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);display:flex;align-items:center;gap:10px;padding:0 16px;height:54px}
 .logo{font-family:var(--font-head);font-weight:700;font-size:16px;display:flex;align-items:center;gap:10px;flex-shrink:0;min-width:0}
 .logo-sub{color:var(--text3);font-size:10px;font-weight:400;font-family:var(--font-mono);letter-spacing:.06em}
 .nav{display:flex;gap:2px;flex-shrink:0;overflow:hidden}
@@ -161,7 +161,7 @@ body{font-family:var(--font-mono);background:var(--bg);color:var(--text);min-hei
 .profil-avatar{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:600;flex-shrink:0}
 .profil-name{font-size:12px;color:var(--text);font-weight:500}
 .profil-team-label{font-size:10px;color:var(--text3)}
-.profil-dropdown{position:absolute;top:calc(100% + 8px);right:0;background:var(--surface2);border:1px solid var(--border2);border-radius:var(--radius-xl);padding:6px;width:210px;display:none;z-index:100;box-shadow:var(--shadow-md)}
+.profil-dropdown{position:absolute;top:calc(100% + 8px);right:0;background:var(--surface2);border:1px solid var(--border2);border-radius:var(--radius-xl);padding:6px;width:210px;display:none;z-index:200;box-shadow:var(--shadow-md)}
 .profil-dropdown.open{display:block}
 .profil-dropdown-item{padding:8px 10px;border-radius:var(--radius);cursor:pointer;font-size:12px;color:var(--text2);transition:all .1s;display:flex;align-items:center;gap:8px}
 .profil-dropdown-item:hover{background:var(--surface3);color:var(--text)}
@@ -611,9 +611,22 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
   }
 
   /* ── CALENDAR ── */
-  .cal-day{min-height:56px;padding:4px 3px}
+  .cal-day{min-height:0;height:auto;padding:4px 2px}
   .cal-month-title{font-size:13px;min-width:120px}
   .cal-legend{flex-wrap:wrap;gap:8px}
+  /* Réduire le numéro de jour sur mobile */
+  .cal-day-num{font-size:10px;width:18px;height:18px;margin-bottom:2px}
+  .cal-day.today .cal-day-num{width:18px;height:18px;font-size:10px}
+  .cal-weekday{padding:6px 2px;font-size:8px}
+  /* Sur mobile : cacher les labels d'événements, montrer juste des points */
+  .cal-event{display:none!important}
+  .cal-more{display:none!important}
+  /* Afficher à la place des petits dots colorés sous le numéro */
+  .cal-dot-row{display:flex;flex-wrap:wrap;gap:2px;justify-content:center;margin-top:2px;cursor:pointer}
+  .cal-dot{width:5px;height:5px;border-radius:50%;flex-shrink:0}
+  /* Le calendrier doit être scrollable si ça dépasse */
+  .cal-wrap{overflow-y:auto;-webkit-overflow-scrolling:touch}
+  .cal-grid{border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden}
 
   /* ── EXPENSES FORM ── */
   .expenses-add-form{flex-direction:column;gap:10px}
@@ -1220,6 +1233,7 @@ const STATUS_COLORS = {'backlog':'#6060a0','en cours':'#3d8ef0','review':'#e8900
 
 let tasks    = [];
 let profiles = [];
+let subtasksMap = {}; // task_id → sous-tâches[]
 const expandedRows = new Set();
 let profile       = null;
 let editId        = null;
@@ -1589,17 +1603,28 @@ function renderAccueilMembre(salut,firstName){
     const pr=PRIOS[t.priority]||PRIOS.moyenne;
     const sc=STATUS_COLORS[t.status];
     const lateBool=isLate(t.deadline,t.status);
+    const subs=subtasksMap[t.id]||[];
+    const subsDone=subs.filter(s=>s.done).length;
+    const subsHtml=subs.length?`<div style="margin-top:6px;display:flex;flex-direction:column;gap:3px">${subs.map(s=>`<div style="display:flex;align-items:center;gap:6px;padding:2px 0">
+      <span style="width:12px;height:12px;border-radius:3px;border:1.5px solid ${s.done?'var(--green)':'var(--border3)'};background:${s.done?'var(--green)':'transparent'};display:inline-flex;align-items:center;justify-content:center;flex-shrink:0">${s.done?'<svg width="8" height="8" viewBox="0 0 10 10"><polyline points="1.5,5 4,7.5 8.5,2.5" stroke="white" stroke-width="1.8" fill="none" stroke-linecap="round"/></svg>':''}</span>
+      <span style="font-size:10px;color:${s.done?'var(--text3)':'var(--text2)'};${s.done?'text-decoration:line-through':''};flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(s.title)}</span>
+    </div>`).join('')}</div>
+    <div style="margin-top:5px;display:flex;align-items:center;gap:6px">
+      <div style="flex:1;height:3px;border-radius:2px;background:var(--border2);overflow:hidden"><div style="height:100%;width:${subs.length?Math.round(subsDone/subs.length*100):0}%;background:var(--green);transition:width .3s"></div></div>
+      <span style="font-size:9px;color:var(--text3)">${subsDone}/${subs.length}</span>
+    </div>`:'';
     return`<div class="ac-task-row" onclick="openDetail(${t.id})">
       <div style="width:4px;height:100%;min-height:36px;border-radius:2px;background:${lateBool?'var(--red)':pr.color};flex-shrink:0;align-self:stretch"></div>
-      <div style="flex:1">
+      <div style="flex:1;min-width:0">
         <div class="ac-task-title">${esc(t.title)}</div>
         <div class="ac-task-meta">
           <span class="tag" style="background:${pr.bg};color:${pr.color};font-size:9px">${pr.label}</span>
           <span class="tag" style="background:${sc}22;color:${sc};font-size:9px">${STATUS_LABELS[t.status]}</span>
           ${t.deadline?`<span style="font-size:10px;color:${lateBool?'var(--red)':'var(--text3)'}">${lateBool?'⚠ ':'📅 '}${fmtDate(t.deadline)}</span>`:''}
         </div>
+        ${subsHtml}
       </div>
-      <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--text3)" stroke-width="2.2"><polyline points="9 18 15 12 9 6"/></svg>
+      <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--text3)" stroke-width="2.2" style="flex-shrink:0"><polyline points="9 18 15 12 9 6"/></svg>
     </div>`;
   }).join(''):'<div class="ac-empty">🎉 Aucune tâche active !</div>';
 
@@ -1953,7 +1978,7 @@ let taskSelectedAssignees = [];
 function esc(s){const d=document.createElement('div');d.textContent=s||'';return d.innerHTML;}
 function initials(n){return(n||'?').split(' ').map(w=>w[0]).join('').substring(0,2).toUpperCase();}
 function avatarBg(n){const c=['#9b6ef033','#e8404033','#e8900a33','#2ecc8a33','#3d8ef033','#60608033'];let h=0;for(let i=0;i<(n||'').length;i++)h=(h*31+(n||'').charCodeAt(i))%c.length;return{bg:c[h],color:c[h].slice(0,7)};}
-function isLate(dl,status){return dl&&new Date(dl+'T00:00:00')<new Date()&&status!=='terminé';}
+function isLate(dl,status){if(!dl||status==='terminé')return false;const end=new Date(dl+'T23:59:59');return end<new Date();}
 function fmtDate(d){if(!d)return '';const dt=new Date(d+'T00:00:00');return dt.toLocaleDateString('fr-FR',{day:'2-digit',month:'short'});}
 function fmtTs(ts){if(!ts)return '';const d=new Date(ts);return d.toLocaleDateString('fr-FR',{day:'2-digit',month:'short'})+' '+d.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});}
 function showLoader(v){document.getElementById('loader').style.display=v?'flex':'none';}
@@ -2115,6 +2140,7 @@ async function fetchTasks(){const {data,error}=await sb.from('tasks').select('*'
 async function fetchProfiles(){const {data,error}=await sb.from('profiles').select('*').order('name');if(!error)profiles=data||[];}
 async function fetchComments(taskId){const {data}=await sb.from('comments').select('*').eq('task_id',taskId).order('created_at');return data||[];}
 async function fetchSubtasks(taskId){const {data}=await sb.from('subtasks').select('*').eq('task_id',taskId).order('created_at');return data||[];}
+async function fetchAllSubtasks(){const {data}=await sb.from('subtasks').select('*').order('created_at');if(data){subtasksMap={};data.forEach(s=>{if(!subtasksMap[s.task_id])subtasksMap[s.task_id]=[];subtasksMap[s.task_id].push(s);});}}
 async function fetchSubtaskComments(subtaskId){const {data}=await sb.from('subtask_comments').select('*').eq('subtask_id',subtaskId).order('created_at');return data||[];}
 
 // ── REALTIME ──────────────────────────────────────────
@@ -2140,18 +2166,16 @@ function subscribeRealtime(){
     })
     .on('postgres_changes',{event:'*',schema:'public',table:'subtasks'},async(payload)=>{
       const changedTaskId=Number(payload.new?.task_id||payload.old?.task_id);
+      // Mettre à jour le cache global
+      if(changedTaskId){const st=await fetchSubtasks(changedTaskId);subtasksMap[changedTaskId]=st;}
       // 1. Rafraîchir le panneau de détail
       if(openDetailId&&changedTaskId===Number(openDetailId)){
-        const st=await fetchSubtasks(openDetailId);
-        renderSubtasks(openDetailId,st);
-        // Mettre à jour le cache inline
-        if(!window._subtaskCache)window._subtaskCache={};
-        window._subtaskCache[openDetailId]=st;
+        renderSubtasks(openDetailId,subtasksMap[openDetailId]||[]);
       }
       // 2. Rafraîchir les lignes expandées dans la liste
       if(expandedRows.has(changedTaskId))refreshInlineSubtasks(changedTaskId);
-      // 3. Re-render la liste pour mettre à jour la barre de progression
-      if(curView==='liste')renderList();
+      // 3. Re-render la vue courante
+      render();
     })
     .on('postgres_changes',{event:'*',schema:'public',table:'subtask_comments'},async(payload)=>{
       // Pour INSERT : vérifier author. Pour DELETE/UPDATE : payload.new peut être null → toujours rafraîchir
@@ -2961,11 +2985,14 @@ function renderCalMonth(){
     <div class="cal-grid">
       ${DAYS.map(d=>`<div class="cal-weekday">${d}</div>`).join('')}
       ${cells.map(({date,thisMonth})=>{
-        const key=date.toISOString().slice(0,10);
+        const key=`${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`;
         const isToday=date.toDateString()===today.toDateString();
         const evs=evMap[key]||[];
         const shown=evs.slice(0,3);
         const more=evs.length-3;
+        // Mobile dots (max 3)
+        const dots=evs.slice(0,3).map(t=>{const late=isLate(t.deadline,t.status);const color=late?'var(--red)':(TEAMS[t.team]||'#606080');return`<div class="cal-dot" style="background:${color}" title="${esc(t.title)}"></div>`;}).join('');
+        const dayClick=evs.length?`onclick="openCalMorePopup(event,'${key}')"`:'';
         return`<div class="cal-day${thisMonth?'':' other-month'}${isToday?' today':''}">
           <div class="cal-day-num">${date.getDate()}</div>
           ${shown.map(t=>{
@@ -2975,6 +3002,7 @@ function renderCalMonth(){
             return`<div class="cal-event" style="background:${color}22;color:${color}" title="${esc(t.title)}" onclick="openDetail(${t.id})">${esc(t.title)}</div>`;
           }).join('')}
           ${more>0?`<div class="cal-more" onclick="openCalMorePopup(event,'${key}')">+${more} autre${more>1?'s':''}</div>`:''}
+          ${dots?`<div class="cal-dot-row" ${dayClick}>${dots}</div>`:''}
         </div>`;
       }).join('')}
     </div>
@@ -3047,13 +3075,12 @@ function openCalMorePopup(e,dateKey){
     evMap[t.deadline].push(t);
   });
   const evs=evMap[dateKey]||[];
-  const hidden=evs.slice(3); // only the ones not shown
-  if(!hidden.length)return;
+  if(!evs.length)return;
 
   const dt=new Date(dateKey+'T00:00:00');
   const popup=document.getElementById('cal-more-popup');
-  document.getElementById('cal-more-popup-date').textContent=`${dt.getDate()} ${MONTHS_FR[dt.getMonth()]} — ${evs.length} tâches`;
-  document.getElementById('cal-more-popup-list').innerHTML=hidden.map(t=>{
+  document.getElementById('cal-more-popup-date').textContent=`${dt.getDate()} ${MONTHS_FR[dt.getMonth()]} — ${evs.length} tâche${evs.length>1?'s':''}`;
+  document.getElementById('cal-more-popup-list').innerHTML=evs.map(t=>{
     const tc=TEAMS[t.team]||'#606080';
     const late=isLate(t.deadline,t.status);
     const color=late?'var(--red)':tc;
@@ -3198,7 +3225,7 @@ function renderExpenses(){
 
 async function initApp(){
   showLoader(true);
-  await Promise.all([fetchTasks(),fetchProfiles(),loadExpenses()]);
+  await Promise.all([fetchTasks(),fetchProfiles(),loadExpenses(),fetchAllSubtasks()]);
   loadNotifications();
   initTheme();
   renderTopbarProfile();
